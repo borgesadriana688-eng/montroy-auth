@@ -6,5 +6,13 @@
   "pw": "36a352b2cd0924bf040e59f348348ec8cd2f5d317a25c48608d00c3a4d86f7e2",
   "fp": "Google|seed",
   "created": 1793217187
+ },
+ "2": {
+  "id": 2,
+  "username": "jogador_teste",
+  "salt": "bc31ab911cdd8225",
+  "pw": "55ebf4efb3b240a00c74912eb8a5304757170f8e5fd5b50ea87e17b3c3205076",
+  "fp": "Google|abc",
+  "created": 1793217189
  }
 }
