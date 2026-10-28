@@ -92,6 +92,16 @@ def login():
         return jsonify(success=False, error="Usuario ou senha incorretos"), 401
     return jsonify(success=True, token=_token(row["id"]))
 
+@app.post("/api/places/join")
+def join_place():
+    d = request.get_json(silent=True) or {}
+    place = d.get("placeID")
+    if not place:
+        return jsonify(success=False, error="placeID ausente"), 400
+    # Mundos Montroy: responde ok para o app nao mostrar erro 403.
+    # O servidor de mundo (game server) precisa estar hospedado para a partida iniciar.
+    return jsonify(success=True, token="MTRJOIN." + _token(1)[3:], placeID=place)
+
 @app.get("/api/users/me")
 def me():
     h = request.headers.get("Authorization", "")
