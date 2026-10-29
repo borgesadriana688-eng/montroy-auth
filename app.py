@@ -214,6 +214,92 @@ def join_place():
     return jsonify(success=True, token="MTRJOIN." + _token(1)[3:])
 
 
+_codigos = {}
+
+
+# ---------- pagina de login/cadastro (abre no navegador a partir do app) ----------
+PAGINA = """<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Montroy - Entrar</title><style>
+*{box-sizing:border-box;font-family:system-ui,sans-serif}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+background:linear-gradient(160deg,#1a0b2e,#2d1152 60%,#12081f);color:#fff}
+.card{width:min(92vw,380px);background:rgba(12,6,24,.92);border:1px solid #6b3fd4;border-radius:16px;padding:22px}
+h1{margin:0 0 4px;font-size:26px;letter-spacing:2px;text-align:center;color:#ffd319}
+p.sub{margin:0 0 18px;text-align:center;font-size:12px;color:#b7a8d6}
+.tabs{display:flex;gap:8px;margin-bottom:14px}
+.tab{flex:1;padding:10px;border-radius:10px;border:1px solid #6b3fd4;background:transparent;color:#fff;font-size:14px}
+.tab.on{background:#6b3fd4}
+input{width:100%;padding:12px;margin-bottom:10px;border-radius:10px;border:1px solid #4a2f8f;background:#170c2b;color:#fff;font-size:15px}
+button.go{width:100%;padding:13px;border:0;border-radius:10px;background:#7c3aed;color:#fff;font-size:16px;font-weight:600}
+.msg{min-height:18px;font-size:13px;text-align:center;margin-top:10px;color:#ff8fa3}
+</style></head><body>
+<div class="card">
+<h1>MONTROY</h1>
+<p class="sub">Bem vindo ao montroy Server, desenvolvido por Brayan</p>
+<div class="tabs"><button class="tab on" id="tLogin" onclick="modo('login')">Entrar</button>
+<button class="tab" id="tReg" onclick="modo('register')">Criar conta</button></div>
+<input id="u" placeholder="Nome de usuario" autocomplete="username">
+<input id="p" type="password" placeholder="Senha" autocomplete="current-password">
+<button class="go" id="btn" onclick="enviar()">Entrar</button>
+<div class="msg" id="msg"></div>
+</div>
+<script>
+var m='login';
+var state=new URLSearchParams(location.search).get('state')||'';
+function modo(x){m=x;document.getElementById('tLogin').className='tab'+(x=='login'?' on':'');
+document.getElementById('tReg').className='tab'+(x=='register'?' on':'');
+document.getElementById('btn').textContent=(x=='login'?'Entrar':'Criar conta');}
+function enviar(){
+ var u=document.getElementById('u').value.trim(),p=document.getElementById('p').value;
+ var msg=document.getElementById('msg');
+ if(u.length<3||p.length<4){msg.textContent='Usuario min 3 e senha min 4.';return;}
+ msg.textContent='Conectando...';
+ fetch('/v1/mobile/'+m,{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({username:u,password:p,fingerprint:'Google|web'})})
+ .then(function(r){return r.json()})
+ .then(function(d){
+   if(d.success){msg.textContent='Tudo certo! Voltando para o app...';
+     fetch('/auth/code',{method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({token:d.token,state:state})})
+     .then(function(r){return r.json()})
+     .then(function(c){location.href='polytoria://auth?code='+c.code+'&state='+encodeURIComponent(state)});}
+   else{msg.textContent=d.error||'Falha';}
+ })
+ .catch(function(e){msg.textContent='Sem conexao';});
+}
+modo('login');
+</script></body></html>"""
+
+
+@app.get("/auth/mobile")
+def auth_mobile():
+    return PAGINA
+
+
+@app.post("/auth/code")
+def auth_code():
+    d = request.get_json(silent=True) or {}
+    tok = d.get("token") or ""
+    uid = _check(tok) if tok.startswith("MTR") else None
+    if uid is None:
+        return jsonify(error="token invalido"), 401
+    code = secrets.token_hex(16)
+    _codigos[code] = {"uid": uid, "exp": time.time() + 300}
+    return jsonify(code=code)
+
+
+@app.post("/v1/mobile/token")
+def mobile_token():
+    d = request.get_json(silent=True) or {}
+    code = d.get("code") or ""
+    item = _codigos.pop(code, None)
+    if not item or item["exp"] < time.time():
+        return jsonify(success=False, error="code invalido"), 401
+    return jsonify(success=True, token=_token(item["uid"]))
+
+
 load()
 
 if __name__ == "__main__":
